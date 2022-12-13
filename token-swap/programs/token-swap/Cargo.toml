@@ -9,11 +9,19 @@ crate-type = ["cdylib", "lib"]
 name = "token_swap"
 
 [features]
-no-entrypoint = []
-no-idl = []
-no-log-ix-name = []
 cpi = ["no-entrypoint"]
 default = []
+no-entrypoint = []
+no-idl = []
 
 [dependencies]
-anchor-lang = "0.25.0"
+anchor-lang = {version = "0.25.0", features = ["init-if-needed"] }
+anchor-spl = {version = "0.25.0", features = ["default"]  }
+arrayref = "0.3.6"
+solana-program = "1.10.0"
+spl-math = {version = "0.1", features = ["no-entrypoint"]}
+spl-token = {version = "3.3.0", features = ["no-entrypoint"]}
+
+[dev-dependencies]
+proptest = "1.0"
+roots = "0.0.7"
