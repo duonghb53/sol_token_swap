@@ -10,8 +10,8 @@ const getEnv = () => {
     case 'production':
       return 'production'
     default:
-      return 'development'
+      return 'test'
   }
 }
-export type Env = 'development' | 'test' | 'production'
+export type Env =  'test' | 'development' | 'production'
 export const env: Env = getEnv()

@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@sentre/antd-ionicon": "^2.0.2",
+    "@solana/spl-token": "^0.3.6",
     "@solana/wallet-adapter-base": "^0.9.18",
     "@solana/wallet-adapter-react": "^0.15.24",
     "@solana/wallet-adapter-react-ui": "^0.9.22",
@@ -17,7 +18,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "craco start",
+    "start": "NODE_ENV=test craco start",
     "build": "craco build",
     "test": "craco test",
     "eject": "craco eject"
