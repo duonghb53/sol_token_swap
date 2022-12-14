@@ -1,0 +1,1 @@
+pub const INITIAL_SWAP_POOL_AMOUNT: u64 = 1_000_000_000;

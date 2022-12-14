@@ -51,5 +51,8 @@ pub enum SwapError {
     CalculationFailure,
     // Invalid instruction number passed in.
     #[msg("Invalid instruction")]
-    InvalidInstruction
+    InvalidInstruction,
+    // The provided token program does not match the token program expected by the swap
+    #[msg("The provided token program does not match the token program expected by the swap")]
+    IncorrectTokenProgramId,
 }
