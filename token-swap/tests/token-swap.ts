@@ -11,10 +11,6 @@ describe("token-swap", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-
-  const program = anchor.workspace.TokenSwap as Program<TokenSwap>;
-  const splProgram = Spl.token();
-
   let authority: PublicKey;
   let bumpSeed: number;
   let tokenPool: Token;
@@ -38,8 +34,210 @@ describe("token-swap", () => {
   const poolAccount = anchor.web3.Keypair.generate();
   const payer = anchor.web3.Keypair.generate();
   const owner = anchor.web3.Keypair.generate();
+  let treasurer: anchor.web3.PublicKey;
+  const proposal = new anchor.web3.Keypair();
+
+  const program = anchor.workspace.TokenSwap as Program<TokenSwap>;
+  const splProgram = Spl.token(provider);
+
+  it("Initialized Mint", async () => {
+    const amount = new anchor.BN(100);
+    const [mint] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("mint"), provider.wallet.publicKey.toBuffer()],
+      program.programId
+    );
+
+    const tokenAccount = await anchor.utils.token.associatedAddress({
+      mint,
+      owner: provider.wallet.publicKey,
+    });
+
+    const poolAccount = await anchor.utils.token.associatedAddress({
+      mint,
+      owner: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+    });
+
+    // Add your test here.
+    const tx = await program.methods
+      .initialize(amount)
+      .accounts({
+        user: provider.wallet.publicKey,
+        mint,
+        tokenAccount,
+        // poolAccount,
+        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+    console.log("Your transaction signature", tx);
+
+    const tokenAccountData = await splProgram.account.token.fetch(tokenAccount);
+    console.log("tokenAccountData", tokenAccountData.amount.toNumber());
+  });
+
+  it("Transfer!", async () => {
+    const amount = new anchor.BN(30);
+    const [mint] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("mint"), provider.wallet.publicKey.toBuffer()],
+      program.programId
+    );
+
+    const receiver = anchor.web3.Keypair.generate().publicKey;
+
+    const poolAccount = await anchor.utils.token.associatedAddress({
+      mint,
+      owner: program.programId,
+    });
+
+    const srcTokenAccount = await anchor.utils.token.associatedAddress({
+      mint,
+      owner: provider.wallet.publicKey,
+    });
+    const dstTokenAccount = await anchor.utils.token.associatedAddress({
+      mint,
+      owner: receiver,
+    });
+
+    // Add your test here.
+    const tx = await program.methods
+      .transfer(amount)
+      .accounts({
+        user: provider.wallet.publicKey,
+        receiver,
+        mint,
+        srcTokenAccount,
+        dstTokenAccount,
+        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .rpc();
+    console.log("Your transaction signature", tx);
+
+    const srcTokenAccountData = await splProgram.account.token.fetch(
+      srcTokenAccount
+    );
+    console.log("srcTokenAccount", srcTokenAccountData.amount.toNumber());
+
+    const dstTokenAccountData = await splProgram.account.token.fetch(
+      dstTokenAccount
+    );
+    console.log("dstTokenAccountData", dstTokenAccountData.amount.toNumber());
+  });
 
   it("Initialize Pool!", async () => {
+    // Add your test here.
+    const sig = await provider.connection.requestAirdrop(
+      payer.publicKey,
+      1000000000
+    );
+    await provider.connection.confirmTransaction(sig, "singleGossip");
+
+    const [treasurerPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from("treasurer"), proposal.publicKey.toBuffer()],
+      program.programId
+    );
+    treasurer = treasurerPublicKey;
+
+    [authority, bumpSeed] = await PublicKey.findProgramAddress(
+      [poolAccount.publicKey.toBuffer()],
+      program.programId
+    );
+
+    // creating pool mint
+    tokenPool = await Token.createMint(
+      provider.connection,
+      payer,
+      authority,
+      null,
+      2,
+      TOKEN_PROGRAM_ID
+    );
+
+    // creating pool account
+    tokenAccountPool = await tokenPool.createAccount(owner.publicKey);
+
+    // creating token A
+    mintA = await Token.createMint(
+      provider.connection,
+      payer,
+      owner.publicKey,
+      null,
+      2,
+      TOKEN_PROGRAM_ID
+    );
+
+    // creating token A account
+    tokenAccountA = await mintA.createAccount(authority);
+    // minting token A to swap
+    await mintA.mintTo(tokenAccountA, owner, [], currentSwapTokenA);
+
+    // creating token B
+    mintB = await Token.createMint(
+      provider.connection,
+      payer,
+      owner.publicKey,
+      null,
+      2,
+      TOKEN_PROGRAM_ID
+    );
+
+    // creating token B account
+    tokenAccountB = await mintB.createAccount(authority);
+    // minting token B to swap
+    await mintB.mintTo(tokenAccountB, owner, [], currentSwapTokenB);
+
+    // const tx = await program.methods
+    //   .initializePool()
+    //   .accounts(
+    //     {
+    //       authority: authority,
+    //       pool: poolAccount.publicKey,
+    //       tokenA: tokenAccountA,
+    //       tokenB: tokenAccountB,
+    //       poolMint: tokenPool.publicKey,
+    //       destination: tokenAccountPool,
+    //       tokenProgram: TOKEN_PROGRAM_ID,
+    //     }
+    //     // instructions: [await program.account.pool.createInstruction(poolAccount)]
+    //     // signers: [poolAccount]
+    //   )
+    //   .rpc();
+
+    const tx = await program.rpc.initializePool({
+      accounts: {
+        authority: authority,
+        pool: poolAccount.publicKey,
+        tokenA: tokenAccountA,
+        tokenB: tokenAccountB,
+        poolMint: tokenPool.publicKey,
+        destination: tokenAccountPool,
+        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+      instructions: [await program.account.pool.createInstruction(poolAccount)],
+      signers: [poolAccount],
+    });
+
+    let fetchedpoolAccount = await program.account.pool.fetch(
+      poolAccount.publicKey
+    );
+
+    console.log("Your transaction signature", tx);
+    // console.log("fetchedpoolAccount", fetchedpoolAccount);
+    assert(fetchedpoolAccount.tokenAAccount.equals(tokenAccountA));
+    assert(fetchedpoolAccount.tokenBAccount.equals(tokenAccountB));
+    assert(fetchedpoolAccount.tokenAMint.equals(mintA.publicKey));
+    assert(fetchedpoolAccount.tokenBMint.equals(mintB.publicKey));
+    assert(fetchedpoolAccount.poolMint.equals(tokenPool.publicKey));
+  });
+
+  it("Deposit Token!", async () => {
     // Add your test here.
     const sig = await provider.connection.requestAirdrop(
       payer.publicKey,
@@ -95,38 +293,37 @@ describe("token-swap", () => {
     // minting token B to swap
     await mintB.mintTo(tokenAccountB, owner, [], currentSwapTokenB);
 
-    const tx = await program.methods
-    .initialize()
-      .accounts({
-        authority: authority,
-        pool: poolAccount.publicKey,
-        tokenA: tokenAccountA,
-        tokenB: tokenAccountB,
-        poolMint: tokenPool.publicKey,
-        destination: tokenAccountPool,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      }
-      // instructions: [await program.account.pool.createInstruction(poolAccount)]
-      // signers: [poolAccount]
-      )
-      .preInstructions([await program.account.pool.createInstruction(poolAccount)])
-      .signers([poolAccount])
-      .rpc();
+    const instruction = await program.account.pool.createInstruction(
+      poolAccount
+    );
 
-    // const tx = await program.rpc.initialize({
-    //   accounts: {
-    //     authority: authority,
-    //     pool: poolAccount.publicKey,
-    //     tokenA: tokenAccountA,
-    //     tokenB: tokenAccountB,
-    //     poolMint: tokenPool.publicKey,
-    //     destination: tokenAccountPool,
-    //     tokenProgram: TOKEN_PROGRAM_ID,
-    //   },
-    //   instructions: [await program.account.pool.createInstruction(poolAccount)],
-    //   signers: [poolAccount],
-    // });
-    
+    const userTransferAuthority = anchor.web3.Keypair.generate();
+    await mintA.approve(
+      tokenAccountA,
+      userTransferAuthority.publicKey,
+      owner,
+      [],
+      currentSwapTokenA
+    );
+    // Creating depositor pool token account
+    const newAccountPool = await tokenPool.createAccount(owner.publicKey);
+
+    const tx = await program.rpc.depositToken(new anchor.BN(SWAP_AMOUNT_IN), {
+      accounts: {
+        authority: authority,
+        userTransferAuthorityInfo: userTransferAuthority.publicKey,
+        source: tokenAccountA,
+        swapTokenA: tokenAccountA,
+        swapTokenB: tokenAccountB,
+        poolMint: tokenPool.publicKey,
+        destination: newAccountPool,
+        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+        associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      },
+      signers: [userTransferAuthority],
+    });
 
     // let fetchedpoolAccount = await program.account.pool.fetch(
     //   poolAccount.publicKey
@@ -134,7 +331,6 @@ describe("token-swap", () => {
 
     console.log("Your transaction signature", tx);
     // console.log("fetchedpoolAccount", fetchedpoolAccount);
-    // assert(fetchedpoolAccount.tokenProgramId.equals(TOKEN_PROGRAM_ID));
     // assert(fetchedpoolAccount.tokenAAccount.equals(tokenAccountA));
     // assert(fetchedpoolAccount.tokenBAccount.equals(tokenAccountB));
     // assert(fetchedpoolAccount.tokenAMint.equals(mintA.publicKey));
@@ -142,103 +338,102 @@ describe("token-swap", () => {
     // assert(fetchedpoolAccount.poolMint.equals(tokenPool.publicKey));
   });
 
-  it("Swap", async () => {
-    // Creating swap token a account
-    // creating token A
-    mintA = await Token.createMint(
-      provider.connection,
-      payer,
-      owner.publicKey,
-      null,
-      2,
-      TOKEN_PROGRAM_ID
-    );
+  // it("Swap", async () => {
+  //   // Creating swap token a account
+  //   // creating token A
+  //   mintA = await Token.createMint(
+  //     provider.connection,
+  //     payer,
+  //     owner.publicKey,
+  //     null,
+  //     2,
+  //     TOKEN_PROGRAM_ID
+  //   );
 
-    // creating token A account
-    tokenAccountA = await mintA.createAccount(authority);
-    // minting token A to swap
-    await mintA.mintTo(tokenAccountA, owner, [], currentSwapTokenA);
+  //   // creating token A account
+  //   tokenAccountA = await mintA.createAccount(authority);
+  //   // minting token A to swap
+  //   await mintA.mintTo(tokenAccountA, owner, [], currentSwapTokenA);
 
-    // creating token B
-    mintB = await Token.createMint(
-      provider.connection,
-      payer,
-      owner.publicKey,
-      null,
-      2,
-      TOKEN_PROGRAM_ID
-    );
+  //   // creating token B
+  //   mintB = await Token.createMint(
+  //     provider.connection,
+  //     payer,
+  //     owner.publicKey,
+  //     null,
+  //     2,
+  //     TOKEN_PROGRAM_ID
+  //   );
 
-    // creating token B account
-    tokenAccountB = await mintB.createAccount(authority);
-    // minting token B to swap
-    await mintB.mintTo(tokenAccountB, owner, [], currentSwapTokenB);
-    let userAccountA = await mintA.createAccount(owner.publicKey);
-    await mintA.mintTo(userAccountA, owner, [], SWAP_AMOUNT_IN);
-    const userTransferAuthority = anchor.web3.Keypair.generate();
-    await mintA.approve(
-      userAccountA,
-      userTransferAuthority.publicKey,
-      owner,
-      [],
-      SWAP_AMOUNT_IN
-    );
-    // Creating swap token b account
-    let userAccountB = await mintB.createAccount(owner.publicKey);
+  //   // creating token B account
+  //   tokenAccountB = await mintB.createAccount(authority);
+  //   // minting token B to swap
+  //   await mintB.mintTo(tokenAccountB, owner, [], currentSwapTokenB);
+  //   let userAccountA = await mintA.createAccount(owner.publicKey);
+  //   await mintA.mintTo(userAccountA, owner, [], SWAP_AMOUNT_IN);
+  //   const userTransferAuthority = anchor.web3.Keypair.generate();
+  //   await mintA.approve(
+  //     userAccountA,
+  //     userTransferAuthority.publicKey,
+  //     owner,
+  //     [],
+  //     SWAP_AMOUNT_IN
+  //   );
+  //   // Creating swap token b account
+  //   let userAccountB = await mintB.createAccount(owner.publicKey);
 
-    const tx = await program.rpc.initialize({
-      accounts: {
-        authority: authority,
-        pool: poolAccount.publicKey,
-        tokenA: tokenAccountA,
-        tokenB: tokenAccountB,
-        poolMint: tokenPool.publicKey,
-        destination: tokenAccountPool,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      },
-      instructions: [await program.account.pool.createInstruction(poolAccount)],
-      signers: [poolAccount],
-    });
-    console.log("Your transaction signature", tx);
+  //   const tx = await program.rpc.initialize({
+  //     accounts: {
+  //       authority: authority,
+  //       pool: poolAccount.publicKey,
+  //       tokenA: tokenAccountA,
+  //       tokenB: tokenAccountB,
+  //       poolMint: tokenPool.publicKey,
+  //       destination: tokenAccountPool,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     },
+  //     instructions: [await program.account.pool.createInstruction(poolAccount)],
+  //     signers: [poolAccount],
+  //   });
+  //   console.log("Your transaction signature", tx);
 
-    // Swapping
-    await program.rpc.swap(
-      new anchor.BN(SWAP_AMOUNT_IN),
-      new anchor.BN(SWAP_AMOUNT_OUT),
-      {
-        accounts: {
-          authority: authority,
-          pool: poolAccount.publicKey,
-          userTransferAuthority: userTransferAuthority.publicKey,
-          sourceInfo: userAccountA,
-          destinationInfo: userAccountB,
-          swapSource: tokenAccountA,
-          swapDestination: tokenAccountB,
-          poolMint: tokenPool.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-        },
-        signers: [userTransferAuthority],
-      }
-    );
+  //   // Swapping
+  //   await program.rpc.swap(
+  //     new anchor.BN(SWAP_AMOUNT_IN),
+  //     {
+  //       accounts: {
+  //         authority: authority,
+  //         pool: poolAccount.publicKey,
+  //         userTransferAuthority: userTransferAuthority.publicKey,
+  //         sourceInfo: userAccountA,
+  //         destinationInfo: userAccountB,
+  //         swapSource: tokenAccountA,
+  //         swapDestination: tokenAccountB,
+  //         poolMint: tokenPool.publicKey,
+  //         tokenProgram: TOKEN_PROGRAM_ID,
+  //       },
+  //       signers: [userTransferAuthority],
+  //     }
+  //   );
 
-    let info;
-    info = await mintA.getAccountInfo(userAccountA);
-    assert(info.amount.toNumber() == 0);
+  //   let info;
+  //   info = await mintA.getAccountInfo(userAccountA);
+  //   assert(info.amount.toNumber() == 0);
 
-    info = await mintB.getAccountInfo(userAccountB);
-    assert(info.amount.toNumber() == SWAP_AMOUNT_OUT);
+  //   info = await mintB.getAccountInfo(userAccountB);
+  //   assert(info.amount.toNumber() == SWAP_AMOUNT_OUT);
 
-    info = await mintA.getAccountInfo(tokenAccountA);
-    assert(info.amount.toNumber() == currentSwapTokenA + SWAP_AMOUNT_IN);
-    currentSwapTokenA += SWAP_AMOUNT_IN;
+  //   info = await mintA.getAccountInfo(tokenAccountA);
+  //   assert(info.amount.toNumber() == currentSwapTokenA + SWAP_AMOUNT_IN);
+  //   currentSwapTokenA += SWAP_AMOUNT_IN;
 
-    info = await mintB.getAccountInfo(tokenAccountB);
-    assert(info.amount.toNumber() == currentSwapTokenB - SWAP_AMOUNT_OUT);
-    currentSwapTokenB -= SWAP_AMOUNT_OUT;
+  //   info = await mintB.getAccountInfo(tokenAccountB);
+  //   assert(info.amount.toNumber() == currentSwapTokenB - SWAP_AMOUNT_OUT);
+  //   currentSwapTokenB -= SWAP_AMOUNT_OUT;
 
-    info = await tokenPool.getAccountInfo(tokenAccountPool);
-    assert(
-      info.amount.toNumber() == DEFAULT_POOL_TOKEN_AMOUNT - POOL_TOKEN_AMOUNT
-    );
-  });
+  //   info = await tokenPool.getAccountInfo(tokenAccountPool);
+  //   assert(
+  //     info.amount.toNumber() == DEFAULT_POOL_TOKEN_AMOUNT - POOL_TOKEN_AMOUNT
+  //   );
+  // })
 });

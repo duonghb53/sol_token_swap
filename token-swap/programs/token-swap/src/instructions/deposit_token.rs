@@ -3,11 +3,12 @@ use crate::*;
 #[derive(Accounts)]
 pub struct DepositToken<'info> {
     /// CHECK: Safe
-    pub authority: AccountInfo<'info>,
-    pub pool: Box<Account<'info, Pool>>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
     /// CHECK: Safe
     #[account(signer)]
     pub user_transfer_authority_info: AccountInfo<'info>,
+    /// CHECK: Safe
     #[account(mut)]
     pub source: Account<'info, TokenAccount>,
     #[account(mut)]
@@ -19,35 +20,33 @@ pub struct DepositToken<'info> {
     /// CHECK: Safe
     #[account(mut)]
     pub destination: AccountInfo<'info>,
-    /// CHECK: Safe
-    pub token_program: AccountInfo<'info>,
+    // System Program Address
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, token::Token>,
+    pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
-impl<'info> DepositToken<'info> {
-    fn into_transfer_to_token_a_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
-            from: self.source.to_account_info().clone(),
-            to: self.swap_token_a.to_account_info().clone(),
-            authority: self.user_transfer_authority_info.clone(),
-        };
-        CpiContext::new(self.token_program.clone(), cpi_accounts)
-    }
+pub fn exec<'a, 'b, 'c, 'info>(
+    ctx: Context<'a, 'b, 'c, 'info, DepositToken<'info>>,
+    amount: u64,
+) -> Result<()> {
+    // if ctx.accounts.source != ctx.accounts.swap_token_a
+    //     || ctx.accounts.source != ctx.accounts.swap_token_b
+    // {
+    //     return Err(SwapError::InvalidInput.into());
+    // }
 
-    fn into_transfer_to_token_b_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
-            from: self.source.to_account_info().clone(),
-            to: self.swap_token_b.to_account_info().clone(),
-            authority: self.user_transfer_authority_info.clone(),
-        };
-        CpiContext::new(self.token_program.clone(), cpi_accounts)
-    }
+    let transfer_ctx = CpiContext::new(
+        ctx.accounts.token_program.to_account_info(),
+        Transfer {
+            from: ctx.accounts.source.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        },
+    );
 
-    fn into_mint_to_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
-        let cpi_accounts = MintTo {
-            mint: self.pool_mint.to_account_info().clone(),
-            to: self.destination.to_account_info().clone(),
-            authority: self.authority.clone(),
-        };
-        CpiContext::new(self.token_program.clone(), cpi_accounts)
-    }
+    token::transfer(transfer_ctx, amount)?;
+
+    Ok(())
 }

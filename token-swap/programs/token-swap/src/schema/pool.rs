@@ -6,8 +6,6 @@ pub struct Pool {
     pub is_initialized: bool,
     /// Bump seed used to generate the program address / authority
     pub bump_seed: u8,
-    /// Token program ID associated with the swap
-    pub token_program_id: Pubkey,
     /// Address of token A liquidity account
     pub token_a_account: Pubkey,
     /// Address of token B liquidity account
@@ -18,4 +16,8 @@ pub struct Pool {
     pub token_a_mint: Pubkey,
     /// Address of token B mint
     pub token_b_mint: Pubkey,
+}
+
+impl Pool {
+    pub const SIZE: usize = 8 + 1 + 1 + 32 + 32 + 32 + 32 + 32;
 }
