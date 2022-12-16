@@ -2,8 +2,9 @@ use crate::*;
 
 #[derive(Accounts)]
 pub struct WithdrawToken<'info> {
+    pub swap_authority: Signer<'info>,
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub user: Signer<'info>,
     #[account(mut)]
     pub source: Account<'info, TokenAccount>,
     #[account(mut)]
@@ -36,7 +37,7 @@ pub fn exec<'a, 'b, 'c, 'info>(
         Transfer {
             from: ctx.accounts.destination.to_account_info(),
             to: ctx.accounts.source.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
+            authority: ctx.accounts.swap_authority.to_account_info(),
         },
     );
 

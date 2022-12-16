@@ -55,4 +55,7 @@ pub enum SwapError {
     // The provided token program does not match the token program expected by the swap
     #[msg("The provided token program does not match the token program expected by the swap")]
     IncorrectTokenProgramId,
+
+    #[msg("Swap input token accounts have the same mint")]
+    RepeatedMint,
 }

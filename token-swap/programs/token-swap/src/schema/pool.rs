@@ -2,6 +2,7 @@ use crate::*;
 
 #[account]
 pub struct Pool {
+    pub swap_authority: Pubkey,
     /// Is the swap initialized, with data written to it
     pub is_initialized: bool,
     /// Bump seed used to generate the program address / authority
@@ -19,5 +20,5 @@ pub struct Pool {
 }
 
 impl Pool {
-    pub const SIZE: usize = 8 + 1 + 1 + 32 + 32 + 32 + 32 + 32;
+    pub const SIZE: usize = 8 + 32 + 1 + 1 + 32 + 32 + 32 + 32 + 32;
 }

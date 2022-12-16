@@ -2,12 +2,11 @@ use crate::*;
 
 #[derive(Accounts)]
 pub struct DepositToken<'info> {
+    pub pool: Box<Account<'info, Pool>>,
     /// CHECK: Safe
+    pub swap_authority: AccountInfo<'info>,
     #[account(mut)]
-    pub authority: Signer<'info>,
-    /// CHECK: Safe
-    #[account(signer)]
-    pub user_transfer_authority_info: AccountInfo<'info>,
+    pub user: Signer<'info>,
     /// CHECK: Safe
     #[account(mut)]
     pub source: Account<'info, TokenAccount>,
@@ -36,13 +35,12 @@ pub fn exec<'a, 'b, 'c, 'info>(
     // {
     //     return Err(SwapError::InvalidInput.into());
     // }
-
     let transfer_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
             from: ctx.accounts.source.to_account_info(),
-            to: ctx.accounts.destination.to_account_info(),
-            authority: ctx.accounts.authority.to_account_info(),
+            to: ctx.accounts.swap_token_a.to_account_info(),
+            authority: ctx.accounts.user.to_account_info(),
         },
     );
 

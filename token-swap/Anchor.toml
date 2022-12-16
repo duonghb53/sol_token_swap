@@ -11,6 +11,7 @@ url = "https://api.apr.dev"
 [provider]
 # cluster = "testnet"
 cluster = "localnet"
+# wallet = "/Users/duonghb53/study/solana_dev/key_pair/my-keypair.json"
 wallet = "/Users/duonghb53/study/solana_dev/key_pair/my-keypair.json"
 
 [scripts]

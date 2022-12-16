@@ -59,9 +59,9 @@ pub fn exec<'a, 'b, 'c, 'info>(
     if ctx.accounts.swap_destination.to_account_info().key == ctx.accounts.destination_info.key {
         return Err(SwapError::InvalidInput.into());
     }
-    if *ctx.accounts.pool_mint.to_account_info().key != pool.pool_mint {
-        return Err(SwapError::IncorrectPoolMint.into());
-    }
+    // if *ctx.accounts.pool_mint.to_account_info().key != pool.pool_mint {
+    //     return Err(SwapError::IncorrectPoolMint.into());
+    // }
 
     let trade_direction = if *ctx.accounts.swap_source.to_account_info().key == pool.token_a_account
     {
