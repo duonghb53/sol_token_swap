@@ -2,7 +2,9 @@ use crate::*;
 
 #[derive(Accounts)]
 pub struct WithdrawToken<'info> {
-    pub swap_authority: Signer<'info>,
+    pub pool: Box<Account<'info, Pool>>,
+    /// CHECK:
+    pub swap_authority: AccountInfo<'info>,
     #[account(mut)]
     pub user: Signer<'info>,
     #[account(mut)]
@@ -31,14 +33,30 @@ pub fn exec<'a, 'b, 'c, 'info>(
     // {
     //     return Err(SwapError::InvalidInput.into());
     // }
+    let pool = &mut ctx.accounts.pool;
 
-    let transfer_ctx = CpiContext::new(
+    let (swap_authority, bump_seed) = Pubkey::find_program_address(
+        &[&ctx.accounts.pool.to_account_info().key.to_bytes()],
+        ctx.program_id,
+    );
+    let seeds: &[&[&[u8]]] = &[&[
+        &ctx.accounts.pool.to_account_info().key.to_bytes(),
+        &[bump_seed][..],
+    ]]; 
+
+    // let seeds: &[&[&[u8]]] = &[&[
+    //     &ctx.accounts.pool.to_account_info().key.to_bytes(),
+    //     &[ctx.accounts.pool.bump_seed][..],
+    // ]];
+
+    let transfer_ctx = CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
-            from: ctx.accounts.destination.to_account_info(),
-            to: ctx.accounts.source.to_account_info(),
+            from: ctx.accounts.swap_token_a.to_account_info(),
+            to: ctx.accounts.destination.to_account_info(),
             authority: ctx.accounts.swap_authority.to_account_info(),
         },
+        seeds,
     );
 
     token::transfer(transfer_ctx, amount)?;

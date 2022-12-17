@@ -4,10 +4,10 @@ use crate::*;
 pub struct Swap<'info> {
     pub pool: Box<Account<'info, Pool>>,
     /// CHECK: Safe
-    pub authority: AccountInfo<'info>,
+    pub swap_authority: AccountInfo<'info>,
     /// CHECK: Safe
-    #[account(signer)]
-    pub user_transfer_authority: AccountInfo<'info>,
+    #[account(mut)]
+    pub user: Signer<'info>,
     /// CHECK: Safe
     #[account(mut)]
     pub source_info: AccountInfo<'info>,
@@ -20,8 +20,31 @@ pub struct Swap<'info> {
     pub swap_destination: Account<'info, TokenAccount>,
     #[account(mut)]
     pub pool_mint: Account<'info, Mint>,
-    /// CHECK: Safe
-    pub token_program: AccountInfo<'info>,
+    // System Program Address
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, token::Token>,
+    pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+impl<'info> Swap<'info> {
+    pub fn transfer_from_token_to_pool(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.swap_source.to_account_info().clone(),
+            to: self.destination_info.to_account_info().clone(),
+            authority: self.user.to_account_info().clone(),
+        };
+        CpiContext::new(self.token_program.to_account_info().clone(), cpi_accounts)
+    }
+
+    pub fn transfer_from_pool_to_user(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        let cpi_accounts = Transfer {
+            from: self.destination_info.to_account_info().clone(),
+            to: self.swap_destination.to_account_info().clone(),
+            authority: self.swap_authority.clone(),
+        };
+        CpiContext::new(self.token_program.to_account_info().clone(), cpi_accounts)
+    }
 }
 
 pub fn exec<'a, 'b, 'c, 'info>(
@@ -33,7 +56,7 @@ pub fn exec<'a, 'b, 'c, 'info>(
         return Err(ProgramError::IncorrectProgramId.into());
     }
 
-    if *ctx.accounts.authority.key
+    if *ctx.accounts.swap_authority.key
         != authority_id(ctx.program_id, pool.to_account_info().key, pool.bump_seed)?
     {
         return Err(SwapError::InvalidProgramAddress.into());
@@ -79,6 +102,19 @@ pub fn exec<'a, 'b, 'c, 'info>(
         &pool.to_account_info().key.to_bytes(),
         &[pool.bump_seed][..],
     ];
+
+    // Transfer token out from Pool to User
+    token::transfer(
+        ctx.accounts.transfer_from_token_to_pool(),
+        swap_token_a_amount,
+    )?;
+
+    token::transfer(
+        ctx.accounts
+            .transfer_from_pool_to_user()
+            .with_signer(&[&seeds[..]]),
+        swap_token_b_amount,
+    )?;
 
     // token::transfer(
     //     ctx.accounts

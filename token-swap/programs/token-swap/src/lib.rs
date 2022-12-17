@@ -53,6 +53,13 @@ pub mod token_swap {
         deposit_token::exec(ctx, amount)
     }
 
+    pub fn withdraw_token<'a, 'b, 'c, 'info>(
+        ctx: Context<'a, 'b, 'c, 'info, WithdrawToken<'info>>,
+        amount: u64,
+    ) -> Result<()> {
+        withdraw_token::exec(ctx, amount)
+    }
+
     pub fn swap<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, Swap<'info>>,
         amount_in: u64,

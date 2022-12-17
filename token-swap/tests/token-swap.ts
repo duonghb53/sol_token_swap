@@ -365,6 +365,132 @@ describe("token-swap", () => {
     // });
   });
 
+  it("WithdrawSingleTokenType", async () => {
+    const tradingTokensToPoolTokens = (
+      sourceAmount: number,
+      swapSourceAmount: number,
+      poolAmount: number
+    ): number => {
+      const tradingFee =
+        (sourceAmount / 2) * (TRADING_FEE_NUMERATOR / TRADING_FEE_DENOMINATOR);
+      const sourceAmountPostFee = sourceAmount - tradingFee;
+      const root = Math.sqrt(sourceAmountPostFee / swapSourceAmount + 1);
+      return Math.floor(poolAmount * (root - 1));
+    };
+
+    // Pool token amount to withdraw on one side
+    const withdrawAmount = 1000;
+    const roundingAmount = 1.0001; // make math a little easier
+
+    const poolMintInfo = await tokenPool.getMintInfo();
+    const supply = (poolMintInfo.supply as anchor.BN).toNumber();
+
+    const swapTokenA = await mintA.getAccountInfo(tokenAccountA);
+    const swapTokenAPost =
+      (swapTokenA.amount as anchor.BN).toNumber() - withdrawAmount;
+    const poolTokenA = tradingTokensToPoolTokens(
+      withdrawAmount,
+      swapTokenAPost,
+      supply
+    );
+    let adjustedPoolTokenA = poolTokenA * roundingAmount;
+
+    const swapTokenB = await mintB.getAccountInfo(tokenAccountB);
+    const swapTokenBPost =
+      (swapTokenB.amount as anchor.BN).toNumber() - withdrawAmount;
+    const poolTokenB = tradingTokensToPoolTokens(
+      withdrawAmount,
+      swapTokenBPost,
+      supply
+    );
+    let adjustedPoolTokenB = poolTokenB * roundingAmount;
+
+    const userTransferAuthority = anchor.web3.Keypair.generate();
+    // Creating withdraw token a account
+    const userAccountA = await mintA.createAccount(owner.publicKey);
+    // Creating withdraw token b account
+    const userAccountB = await mintB.createAccount(owner.publicKey);
+    // Creating withdraw pool token account
+    const poolAccountMint = await tokenPool.getAccountInfo(tokenAccountPool);
+    const poolTokenAmount = (poolAccountMint.amount as anchor.BN).toNumber();
+    console.log(poolTokenAmount);
+    
+    await tokenPool.approve(
+      tokenAccountPool,
+      userTransferAuthority.publicKey,
+      owner,
+      [],
+      withdrawAmount
+    );
+
+    const tokenPoolTemp = await mintB.getAccountInfo(tokenAccountPool);
+
+    // Withdrawing token A only
+    await program.rpc.withdrawToken(
+      new anchor.BN(withdrawAmount),
+      {
+        accounts: {
+          pool: poolAccount.publicKey,
+          swapAuthority: authority,
+          user: userTransferAuthority.publicKey,
+          source: tokenAccountPool,
+          swapTokenA: tokenAccountA,
+          swapTokenB: tokenAccountB,
+          poolMint: tokenPool.publicKey,
+          destination: userAccountA,
+          tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+          associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
+        signers: [userTransferAuthority],
+      }
+    );
+
+    let info;
+    info = await mintA.getAccountInfo(userAccountA);
+    assert(info.amount.toNumber() == withdrawAmount);
+    info = await mintA.getAccountInfo(tokenAccountA);
+    assert(info.amount.toNumber() == currentSwapTokenA - withdrawAmount);
+    currentSwapTokenA += withdrawAmount;
+    info = await tokenPool.getAccountInfo(tokenAccountPool);
+    assert(info.amount.toNumber() >= poolTokenAmount - adjustedPoolTokenA);
+
+    // Withdrawing token B only
+    // await program.rpc.withdrawToken(
+    //   new anchor.BN(withdrawAmount),
+    //   new anchor.BN(adjustedPoolTokenB),
+    //   {
+    //     accounts: {
+    //       pool: poolAccount.publicKey,
+    //       swapAuthority: authority,
+    //       user: userTransferAuthority.publicKey,
+    //       source: tokenAccountPool,
+    //       swapTokenA: tokenAccountA,
+    //       swapTokenB: tokenAccountB,
+    //       poolMint: tokenPool.publicKey,
+    //       destination: userAccountB,
+    //       tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+    //       associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+    //       systemProgram: anchor.web3.SystemProgram.programId,
+    //       rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+    //     },
+    //     signers: [userTransferAuthority],
+    //   }
+    // );
+
+    // info = await mintB.getAccountInfo(userAccountB);
+    // assert(info.amount.toNumber() == withdrawAmount);
+    // info = await mintB.getAccountInfo(tokenAccountB);
+    // assert(info.amount.toNumber() == currentSwapTokenB - withdrawAmount);
+    // currentSwapTokenB += withdrawAmount;
+    // info = await tokenPool.getAccountInfo(tokenAccountPool);
+    // assert(
+    //   info.amount.toNumber() >=
+    //     poolTokenAmount - adjustedPoolTokenA - adjustedPoolTokenB
+    // );
+  });
+
   // it("Swap", async () => {
   //   // Creating swap token a account
   //   // creating token A
