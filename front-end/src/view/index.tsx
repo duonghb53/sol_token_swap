@@ -1,4 +1,3 @@
-import IonIcon from "@sentre/antd-ionicon";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import {
@@ -22,13 +21,29 @@ import {
   Form,
   InputNumber,
   Select,
+  Menu,
+  MenuProps,
+  Grid,
+  Divider,
 } from "antd";
+import {
+  AppstoreOutlined,
+  ContainerOutlined,
+  DesktopOutlined,
+  MailOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  PieChartOutlined,
+} from "@ant-design/icons";
+
 import { useCallback, useEffect, useState } from "react";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import logo from "static/images/solanaLogo.svg";
 import brand from "static/images/solanaLogoMark.svg";
 import "./index.less";
+import Swap from "Swap";
+import Deposit from "Deposit";
 
 const { Option } = Select;
 const selectAfter = (
@@ -39,137 +54,26 @@ const selectAfter = (
   </Select>
 );
 
+const componentsSwitch = (key: String) => {
+  switch (key) {
+    case "1":
+      console.log(key);
+      return <Deposit />;
+    case "2":
+      console.log(key);
+      return <Swap />;
+    default:
+      return <Deposit />;
+  }
+};
+
 function View() {
-  const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
-  const [balance, setBalance] = useState(0);
-  const [balanceToken, setBalanceToken] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [selectedMenuItem, setSelectedMenuItem] = useState("1");
+  const [collapsed, setCollapsed] = useState(false);
 
-  const getMyBalance = useCallback(async () => {
-    if (!publicKey) return setBalance(0);
-    // Read on-chain balance
-    const lamports = await connection.getBalance(publicKey);
-    return setBalance(lamports);
-  }, [connection, publicKey]);
-
-  const getMyBalanceToken = useCallback(async () => {
-    if (!publicKey) return setBalanceToken(0);
-    const tokenAccount = new PublicKey(
-      "mmLLL2c2Uv3irYJFk3mLmSKa8zfy2ERkd9tXDAgwpym"
-    );
-
-    // Read on-chain balance
-    let tokenAmount = await connection.getTokenAccountBalance(tokenAccount);
-    console.log(`amount: ${tokenAmount.value.uiAmount}`);
-    console.log(`decimals: ${tokenAmount.value.decimals}`);
-
-    return setBalanceToken(Number(tokenAmount.value.uiAmount));
-  }, [connection, publicKey]);
-
-  // const airdrop = useCallback(async () => {
-  //   try {
-  //     setLoading(true);
-  //     if (publicKey) {
-  //       // Request SOL airdrop
-  //       await connection.requestAirdrop(publicKey, 10 ** 8);
-  //       // Reload balance
-  //       return getMyBalance();
-  //     }
-  //   } catch (er: any) {
-  //     console.log(er.message);
-  //   } finally {
-  //     return setLoading(false);
-  //   }
-  // }, [connection, publicKey, getMyBalance]);
-
-  // const transfer = useCallback(async () => {
-  //   try {
-  //     setLoading(true);
-  //     if (publicKey) {
-  //       // Create a "transfer" instruction
-  //       const instruction = SystemProgram.transfer({
-  //         fromPubkey: publicKey,
-  //         toPubkey: Keypair.generate().publicKey,
-  //         lamports: 10 ** 8,
-  //       });
-  //       // Create a transaction and add the instruction intot it
-  //       const transaction = new Transaction().add(instruction);
-  //       // Wrap on-chain info to the transaction
-  //       const {
-  //         context: { slot: minContextSlot },
-  //         value: { blockhash, lastValidBlockHeight },
-  //       } = await connection.getLatestBlockhashAndContext();
-  //       // Send and wait for the transaction confirmed
-  //       const signature = await sendTransaction(transaction, connection, {
-  //         minContextSlot,
-  //       });
-  //       await connection.confirmTransaction({
-  //         blockhash,
-  //         lastValidBlockHeight,
-  //         signature,
-  //       });
-  //       // Reload balance
-  //       return getMyBalance();
-  //     }
-  //   } catch (er: any) {
-  //     console.log(er.message);
-  //   } finally {
-  //     return setLoading(false);
-  //   }
-  // }, [connection, publicKey, getMyBalance, sendTransaction]);
-
-  const swap_token = useCallback(async () => {
-    try {
-      setLoading(true);
-      if (publicKey) {
-        //Create a "transfer" instruction
-        const instruction = SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new PublicKey(
-            "4wWCGESsiqnpb6W78kPWnXZCTLocpuS2U71Gfa8VAXur"
-          ),
-          lamports: LAMPORTS_PER_SOL / 100,
-        });
-        // Create a transaction and add the instruction intot it
-        const transaction = new Transaction().add(instruction);
-        // Wrap on-chain info to the transaction
-        const {
-          context: { slot: minContextSlot },
-          value: { blockhash, lastValidBlockHeight },
-        } = await connection.getLatestBlockhashAndContext();
-        // Send and wait for the transaction confirmed
-        const signature = await sendTransaction(transaction, connection, {
-          minContextSlot,
-        });
-        await connection.confirmTransaction({
-          blockhash,
-          lastValidBlockHeight,
-          signature,
-        });
-        // let keys = [{ pubkey: publicKey, isSigner: true, isWritable: true }];
-        // const custom_instruction = new TransactionInstruction({
-        //   keys,
-        //   programId: new PublicKey(PROGRAM_ID),
-        // });
-
-        // Reload balance
-        return getMyBalance();
-      }
-    } catch (er: any) {
-      console.log(er.message);
-    } finally {
-      return setLoading(false);
-    }
-  }, [connection, publicKey, getMyBalance, sendTransaction]);
-
-  useEffect(() => {
-    getMyBalance();
-  }, [getMyBalance]);
-
-  useEffect(() => {
-    getMyBalanceToken();
-  }, [getMyBalanceToken]);
+  const toggleCollapsed = () => {
+    setCollapsed(!collapsed);
+  };
 
   return (
     <Layout className="container">
@@ -184,42 +88,31 @@ function View() {
             </Col>
           </Row>
         </Col>
-        <Col span={24} style={{ textAlign: "center" }}>
-          <Space direction="vertical" size={24}>
-            <Image src={logo} preview={false} width={256} />
-            <Typography.Title level={2}>Swap Token</Typography.Title>
-            <Typography.Title level={3}>
-              Solana: {balance / LAMPORTS_PER_SOL} SOL
-            </Typography.Title>
-            <Typography.Title level={3}>
-              Reminato: {balanceToken.toLocaleString()} REMI
-            </Typography.Title>
-            <Form
-            // labelCol={{ span: 4 }}
-            // wrapperCol={{ span: 14 }}
-            // layout="horizontal"
-            >
-              <Form.Item label="">
-                <InputNumber addonAfter={selectAfter} size="large" />
-              </Form.Item>
-              <Form.Item label="">
-                <InputNumber addonAfter={selectAfter} size="large" />
-              </Form.Item>
-              <Form.Item label="">
-                <Button
-                  type="primary"
-                  size="large"
-                  style={{ width: 200, height: 50 }}
-                  onClick={swap_token}
-                  loading={loading}
-                >
-                  Swap
-                </Button>
-              </Form.Item>
-            </Form>
-          </Space>
-        </Col>
       </Row>
+      <Row>
+          <Col style={{width: 200}}>
+            <Button
+              type="primary"
+              onClick={toggleCollapsed}
+              style={{ marginBottom: 0 }}
+            >
+              {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            </Button>
+            <Menu
+              defaultSelectedKeys={["1"]}
+              mode="vertical"
+              onClick={(e) => setSelectedMenuItem(e.key)}
+              theme="dark"
+              inlineCollapsed={collapsed}
+            >
+              <Menu.Item key="1">Deposit</Menu.Item>
+              <Menu.Item key="2">Swap</Menu.Item>
+            </Menu>
+          </Col>
+          <Col span={18} style={{ textAlign: "center" }}>
+            {componentsSwitch(selectedMenuItem)}
+          </Col>
+        </Row>
     </Layout>
   );
 }
