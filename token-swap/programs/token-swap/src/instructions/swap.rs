@@ -30,8 +30,8 @@ pub struct Swap<'info> {
 impl<'info> Swap<'info> {
     pub fn transfer_from_token_to_pool(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
-            from: self.swap_source.to_account_info().clone(),
-            to: self.destination_info.to_account_info().clone(),
+            from: self.source_info.to_account_info().clone(),
+            to: self.swap_source.to_account_info().clone(),
             authority: self.user.to_account_info().clone(),
         };
         CpiContext::new(self.token_program.to_account_info().clone(), cpi_accounts)
@@ -39,8 +39,8 @@ impl<'info> Swap<'info> {
 
     pub fn transfer_from_pool_to_user(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
-            from: self.destination_info.to_account_info().clone(),
-            to: self.swap_destination.to_account_info().clone(),
+            from: self.swap_destination.to_account_info().clone(),
+            to: self.destination_info.to_account_info().clone(),
             authority: self.swap_authority.clone(),
         };
         CpiContext::new(self.token_program.to_account_info().clone(), cpi_accounts)
@@ -93,7 +93,7 @@ pub fn exec<'a, 'b, 'c, 'info>(
         TradeDirection::BtoA
     };
 
-    let (swap_token_a_amount, swap_token_b_amount) = match trade_direction {
+    let (swap_token_in_amount, swap_token_out_amount) = match trade_direction {
         TradeDirection::AtoB => (amount_in, amount_in.checked_mul(10).unwrap()),
         TradeDirection::BtoA => (amount_in, amount_in.checked_div(10).unwrap()),
     };
@@ -103,32 +103,19 @@ pub fn exec<'a, 'b, 'c, 'info>(
         &[pool.bump_seed][..],
     ];
 
-    // Transfer token out from Pool to User
+    // Transfer token out from User to Pool
     token::transfer(
         ctx.accounts.transfer_from_token_to_pool(),
-        swap_token_a_amount,
+        swap_token_in_amount,
     )?;
 
+    // Transfer token from Pool to User
     token::transfer(
         ctx.accounts
             .transfer_from_pool_to_user()
             .with_signer(&[&seeds[..]]),
-        swap_token_b_amount,
+        swap_token_out_amount,
     )?;
-
-    // token::transfer(
-    //     ctx.accounts
-    //         .into_transfer_to_swap_source_context()
-    //         .with_signer(&[&seeds[..]]),
-    //     swap_token_b_amount,
-    // )?;
-
-    // token::transfer(
-    //     ctx.accounts
-    //         .into_transfer_to_destination_context()
-    //         .with_signer(&[&seeds[..]]),
-    //     swap_token_a_amount,
-    // )?;
 
     Ok(())
 }

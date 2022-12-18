@@ -69,7 +69,7 @@ function Deposit() {
     return setBalanceToken(Number(tokenAmount.value.uiAmount));
   }, [connection, publicKey]);
 
-  const swap_token = useCallback(async () => {
+  const deposit_token = useCallback(async () => {
     try {
       setLoading(true);
       if (publicKey) {
@@ -124,7 +124,7 @@ function Deposit() {
         Solana: {balance / LAMPORTS_PER_SOL} SOL
       </Typography.Title>
       <Typography.Title level={3}>
-        Reminato: {balanceToken.toLocaleString()} REMI
+        Token: {balanceToken.toLocaleString()} REMI
       </Typography.Title>
       <Form>
         <Form.Item label="">
@@ -135,7 +135,7 @@ function Deposit() {
             type="primary"
             size="large"
             style={{ width: 200, height: 50 }}
-            onClick={swap_token}
+            onClick={deposit_token}
             loading={loading}
           >
             Deposit

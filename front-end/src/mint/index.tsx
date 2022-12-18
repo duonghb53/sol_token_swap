@@ -12,24 +12,18 @@ import { struct, u32, ns64 } from "@solana/buffer-layout";
 
 import {
   Image,
-  Col,
-  Layout,
-  Row,
   Space,
   Typography,
   Button,
   Form,
   InputNumber,
   Select,
-  Menu,
-  MenuProps,
 } from "antd";
 
 import { useCallback, useEffect, useState } from "react";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 import logo from "static/images/solanaLogo.svg";
-import brand from "static/images/solanaLogoMark.svg";
 import "./index.less";
 
 const { Option } = Select;
@@ -41,7 +35,7 @@ const selectAfter = (
   </Select>
 );
 
-function Swap() {
+function Mint() {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const [balance, setBalance] = useState(0);
@@ -69,7 +63,7 @@ function Swap() {
     return setBalanceToken(Number(tokenAmount.value.uiAmount));
   }, [connection, publicKey]);
 
-  const swap_token = useCallback(async () => {
+  const mint_token = useCallback(async () => {
     try {
       setLoading(true);
       if (publicKey) {
@@ -97,11 +91,6 @@ function Swap() {
           lastValidBlockHeight,
           signature,
         });
-        // let keys = [{ pubkey: publicKey, isSigner: true, isWritable: true }];
-        // const custom_instruction = new TransactionInstruction({
-        //   keys,
-        //   programId: new PublicKey(PROGRAM_ID),
-        // });
 
         // Reload balance
         return getMyBalance();
@@ -124,38 +113,29 @@ function Swap() {
   return (
     <Space direction="vertical" size={24}>
       <Image src={logo} preview={false} width={256} />
-      <Typography.Title level={2}>Swap Token</Typography.Title>
+      <Typography.Title level={2}>Mint Token</Typography.Title>
       <Typography.Title level={3}>
         Solana: {balance / LAMPORTS_PER_SOL} SOL
       </Typography.Title>
       <Typography.Title level={3}>
-        Token: {balanceToken.toLocaleString()} REMI
+        Token: {balanceToken.toLocaleString()}
       </Typography.Title>
-      <Form
-      // labelCol={{ span: 4 }}
-      // wrapperCol={{ span: 14 }}
-      // layout="horizontal"
-      >
-        <Form.Item label="">
-          <InputNumber addonAfter={selectAfter} size="large" />
+      <Form>
+        <Form.Item label="Amount">
+          <InputNumber style={{ width: 200 }} size="large" />
         </Form.Item>
-        <Form.Item label="">
-          <InputNumber addonAfter={selectAfter} size="large" />
-        </Form.Item>
-        <Form.Item label="">
-          <Button
-            type="primary"
-            size="large"
-            style={{ width: 200, height: 50 }}
-            onClick={swap_token}
-            loading={loading}
-          >
-            Swap
-          </Button>
-        </Form.Item>
+        <Button
+          type="primary"
+          size="large"
+          style={{ width: 200, height: 50 }}
+          onClick={mint_token}
+          loading={loading}
+        >
+          Mint
+        </Button>
       </Form>
     </Space>
   );
 }
 
-export default Swap;
+export default Mint;

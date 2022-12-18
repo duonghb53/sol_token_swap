@@ -26,7 +26,7 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 pub mod token_swap {
     use super::*;
 
-    pub fn initialize<'a, 'b, 'c, 'info>(
+    pub fn initialize_mint<'a, 'b, 'c, 'info>(
         ctx: Context<'a, 'b, 'c, 'info, InitializeMint<'info>>,
         amount: u64,
     ) -> Result<()> {
@@ -67,4 +67,3 @@ pub mod token_swap {
         swap::exec(ctx, amount_in)
     }
 }
-
