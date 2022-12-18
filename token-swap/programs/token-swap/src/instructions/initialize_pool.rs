@@ -66,12 +66,12 @@ pub fn exec<'a, 'b, 'c, 'info>(
         return Err(SwapError::RepeatedMint.into());
     }
 
-    token::mint_to(
-        ctx.accounts
-            .into_mint_to_context()
-            .with_signer(&[&seeds[..]]),
-        INITIAL_SWAP_POOL_AMOUNT,
-    )?;
+    // token::mint_to(
+    //     ctx.accounts
+    //         .into_mint_to_context()
+    //         .with_signer(&[&seeds[..]]),
+    //     INITIAL_SWAP_POOL_AMOUNT,
+    // )?;
 
     let pool = &mut ctx.accounts.pool;
     pool.swap_authority = swap_authority;

@@ -10,15 +10,16 @@ import "./index.less";
 import Swap from "swap";
 import Deposit from "deposit";
 import Mint from "mint";
+import { PublicKey } from "@solana/web3.js";
 
-const componentsSwitch = (key: String) => {
+const componentsSwitch = (key: string) => {
   switch (key) {
     case "1":
       return <Deposit />;
     case "2":
       return <Swap />;
-    case "3":
-      return <Mint />;
+    // case "3":
+    //   return <Mint />;
     default:
       return <Deposit />;
   }
@@ -64,7 +65,7 @@ function View() {
           >
             <Menu.Item key="1">Deposit</Menu.Item>
             <Menu.Item key="2">Swap</Menu.Item>
-            <Menu.Item key="3">Mint Token</Menu.Item>
+            {/* <Menu.Item key="3">Mint Token</Menu.Item> */}
           </Menu>
         </Col>
         <Col span={18} style={{ textAlign: "center" }}>

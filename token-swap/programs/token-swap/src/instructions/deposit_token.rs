@@ -30,11 +30,6 @@ pub fn exec<'a, 'b, 'c, 'info>(
     ctx: Context<'a, 'b, 'c, 'info, DepositToken<'info>>,
     amount: u64,
 ) -> Result<()> {
-    // if ctx.accounts.source != ctx.accounts.swap_token_a
-    //     || ctx.accounts.source != ctx.accounts.swap_token_b
-    // {
-    //     return Err(SwapError::InvalidInput.into());
-    // }
     let transfer_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
