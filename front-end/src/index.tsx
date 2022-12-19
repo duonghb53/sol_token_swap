@@ -21,6 +21,8 @@ const {
   rpc: { endpoint },
 } = configs
 
+console.log("endpoint: ", endpoint);
+
 createRoot(document.getElementById('root') as HTMLElement).render(
   <BrowserRouter>
     <ConnectionProvider endpoint={endpoint}>

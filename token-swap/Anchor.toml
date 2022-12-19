@@ -3,13 +3,16 @@ seeds = false
 skip-lint = false
 [programs.localnet]
 token_swap = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+# token_swap = "HtHJ1ZnUS6uX958xPey9h7qrUat6enCodqBnQLDBHA81"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
+# cluster = "testnet"
 cluster = "localnet"
-wallet = "/Users/duonghb53/.config/solana/id.json"
+# wallet = "/Users/duonghb53/study/solana_dev/key_pair/my-keypair.json"
+wallet = "/Users/duonghb53/study/solana_dev/key_pair/my-keypair.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

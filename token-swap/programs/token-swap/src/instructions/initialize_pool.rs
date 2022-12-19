@@ -1,72 +1,87 @@
+use crate::schema::*;
 use crate::*;
 
 #[derive(Accounts)]
-#[instruction(amount:u64)]
 pub struct InitializePool<'info> {
+    /// CHECK: Safe
+    pub swap_authority: AccountInfo<'info>,
+    #[account(signer, zero)]
+    pub pool: Box<Account<'info, Pool>>,
     #[account(mut)]
-    pub user: Signer<'info>,
-    #[account(
-      init,
-      payer = user,
-      space = Pool::SIZE,
-  )]
-    pub pool: Account<'info, Pool>,
-
-    #[account(
-      init,
-      seeds = [
-        b"mint",
-        user.key().as_ref(),
-        &amount.to_le_bytes()
-      ],
-      bump,
-      payer = user,
-      mint::decimals = 9,
-      mint::authority = mint,
-  )]
-    pub mint: Account<'info, token::Mint>,
-
-    #[account(
-      init_if_needed,
-      payer = user,
-      associated_token::mint = mint,
-      associated_token::authority = user
-  )]
-    pub token_account: Account<'info, token::TokenAccount>,
-
-    // Program
+    pub pool_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub token_a: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub token_b: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub destination: Account<'info, TokenAccount>,
+    // System Program Address
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, token::Token>,
     pub associated_token_program: Program<'info, associated_token::AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }
 
-// pub fn exec(ctx: Context<InitializePool>, amount: u64) -> Result<()> {
-//     let seeds: &[&[&[u8]]] = &[&[
-//         "mint".as_ref(),
-//         &ctx.accounts.user.key().to_bytes(),
-//         &amount.to_le_bytes(),
-//         &[*ctx.bumps.get("mint").unwrap()],
-//     ]];
+impl<'info> InitializePool<'info> {
+    pub fn into_mint_to_context(&self) -> CpiContext<'_, '_, '_, 'info, MintTo<'info>> {
+        let cpi_accounts = MintTo {
+            mint: self.pool_mint.to_account_info(),
+            to: self.destination.to_account_info(),
+            authority: self.swap_authority.clone(),
+        };
+        CpiContext::new(self.token_program.to_account_info(), cpi_accounts)
+    }
+}
 
-//     let mint_to_ctx = CpiContext::new_with_signer(
-//         ctx.accounts.token_program.to_account_info(),
-//         token::MintTo {
-//             mint: ctx.accounts.mint.to_account_info(),
-//             to: ctx.accounts.token_account.to_account_info(),
-//             authority: ctx.accounts.mint.to_account_info(),
-//         },
-//         seeds,
-//     );
+pub fn exec<'a, 'b, 'c, 'info>(
+    ctx: Context<'a, 'b, 'c, 'info, InitializePool<'info>>,
+) -> Result<()> {
+    let (swap_authority, bump_seed) = Pubkey::find_program_address(
+        &[&ctx.accounts.pool.to_account_info().key.to_bytes()],
+        ctx.program_id,
+    );
+    let seeds = &[
+        &ctx.accounts.pool.to_account_info().key.to_bytes(),
+        &[bump_seed][..],
+    ];
 
-//     token::mint_to(mint_to_ctx, amount)?;
-//     Ok(())
-// }
-pub fn exec(ctx: Context<InitializePool>) -> Result<()> {
-    ctx.accounts.pool.authority = ctx.accounts.token_program.to_account_info().key.clone();
-    ctx.accounts.pool.token_a_account = ctx.accounts.token_program.to_account_info().key.clone();
-    ctx.accounts.pool.token_a_amount = 0u64;
-    ctx.accounts.pool.sol_amount = 0u64;
+    if ctx.accounts.pool.is_initialized {
+        return Err(SwapError::AlreadyInUse.into());
+    }
+
+    if *ctx.accounts.swap_authority.key != swap_authority {
+        return Err(SwapError::InvalidProgramAddress.into());
+    }
+    if *ctx.accounts.swap_authority.key != ctx.accounts.token_a.owner {
+        return Err(SwapError::InvalidOwner.into());
+    }
+    if *ctx.accounts.swap_authority.key != ctx.accounts.token_b.owner {
+        return Err(SwapError::InvalidOwner.into());
+    }
+    if *ctx.accounts.swap_authority.key == ctx.accounts.destination.owner {
+        return Err(SwapError::InvalidOutputOwner.into());
+    }
+
+    if ctx.accounts.token_a.mint == ctx.accounts.token_b.mint {
+        return Err(SwapError::RepeatedMint.into());
+    }
+
+    // token::mint_to(
+    //     ctx.accounts
+    //         .into_mint_to_context()
+    //         .with_signer(&[&seeds[..]]),
+    //     INITIAL_SWAP_POOL_AMOUNT,
+    // )?;
+
+    let pool = &mut ctx.accounts.pool;
+    pool.swap_authority = swap_authority;
+    pool.is_initialized = true;
+    pool.bump_seed = bump_seed;
+    pool.token_a_account = *ctx.accounts.token_a.to_account_info().key;
+    pool.token_b_account = *ctx.accounts.token_b.to_account_info().key;
+    pool.pool_mint = *ctx.accounts.pool_mint.to_account_info().key;
+    pool.token_a_mint = ctx.accounts.token_a.mint;
+    pool.token_b_mint = ctx.accounts.token_b.mint;
 
     Ok(())
 }

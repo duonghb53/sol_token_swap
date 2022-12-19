@@ -13,7 +13,7 @@ const conf: Record<Env, Conf> = {
    * Development configurations
    */
   development: {
-    endpoint: 'https://api.devnet.solana.com',
+    endpoint: 'https://api.testnet.solana.com',
   },
 
   /**

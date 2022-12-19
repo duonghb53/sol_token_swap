@@ -1,83 +1,37 @@
-import IonIcon from '@sentre/antd-ionicon'
-import { useConnection, useWallet } from '@solana/wallet-adapter-react'
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { Keypair, SystemProgram, Transaction } from '@solana/web3.js'
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
-import { Image, Col, Layout, Row, Space, Typography, Button } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { Col, Layout, Row, Button, Menu } from "antd";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 
-import logo from 'static/images/solanaLogo.svg'
-import brand from 'static/images/solanaLogoMark.svg'
-import './index.less'
+import { useState } from "react";
+
+import brand from "static/images/solanaLogoMark.svg";
+import "./index.less";
+import Swap from "swap";
+import Deposit from "deposit";
+import Mint from "mint";
+import { PublicKey } from "@solana/web3.js";
+
+const componentsSwitch = (key: string) => {
+  switch (key) {
+    case "1":
+      return <Deposit />;
+    case "2":
+      return <Swap />;
+    // case "3":
+    //   return <Mint />;
+    default:
+      return <Deposit />;
+  }
+};
 
 function View() {
-  const { connection } = useConnection()
-  const { publicKey, sendTransaction } = useWallet()
-  const [balance, setBalance] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [selectedMenuItem, setSelectedMenuItem] = useState("1");
+  const [collapsed, setCollapsed] = useState(false);
 
-  const getMyBalance = useCallback(async () => {
-    if (!publicKey) return setBalance(0)
-    // Read on-chain balance
-    const lamports = await connection.getBalance(publicKey)
-    return setBalance(lamports)
-  }, [connection, publicKey])
-
-  const airdrop = useCallback(async () => {
-    try {
-      setLoading(true)
-      if (publicKey) {
-        // Request SOL airdrop
-        await connection.requestAirdrop(publicKey, 10 ** 8)
-        // Reload balance
-        return getMyBalance()
-      }
-    } catch (er: any) {
-      console.log(er.message)
-    } finally {
-      return setLoading(false)
-    }
-  }, [connection, publicKey, getMyBalance])
-
-  const transfer = useCallback(async () => {
-    try {
-      setLoading(true)
-      if (publicKey) {
-        // Create a "transfer" instruction
-        const instruction = SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: Keypair.generate().publicKey,
-          lamports: 10 ** 8,
-        })
-        // Create a transaction and add the instruction intot it
-        const transaction = new Transaction().add(instruction)
-        // Wrap on-chain info to the transaction
-        const {
-          context: { slot: minContextSlot },
-          value: { blockhash, lastValidBlockHeight },
-        } = await connection.getLatestBlockhashAndContext()
-        // Send and wait for the transaction confirmed
-        const signature = await sendTransaction(transaction, connection, {
-          minContextSlot,
-        })
-        await connection.confirmTransaction({
-          blockhash,
-          lastValidBlockHeight,
-          signature,
-        })
-        // Reload balance
-        return getMyBalance()
-      }
-    } catch (er: any) {
-      console.log(er.message)
-    } finally {
-      return setLoading(false)
-    }
-  }, [connection, publicKey, getMyBalance, sendTransaction])
-
-  useEffect(() => {
-    getMyBalance()
-  }, [getMyBalance])
+  const toggleCollapsed = () => {
+    setCollapsed(!collapsed);
+  };
 
   return (
     <Layout className="container">
@@ -92,45 +46,34 @@ function View() {
             </Col>
           </Row>
         </Col>
-        <Col span={24} style={{ textAlign: 'center' }}>
-          <Space direction="vertical" size={24}>
-            <Image src={logo} preview={false} width={256} />
-            <Typography.Title level={1}>React + Solana = DApp</Typography.Title>
-            <Typography.Text type="secondary">
-              <Space>
-                <IonIcon name="logo-react" />
-                +
-                <IonIcon name="logo-solana" />
-                =
-                <IonIcon name="rocket" />
-              </Space>
-            </Typography.Text>
-            <Typography.Title>
-              My Balance: {balance / 10 ** 9} SOL
-            </Typography.Title>
-            <Space>
-              <Button
-                type="primary"
-                size="large"
-                onClick={airdrop}
-                loading={loading}
-              >
-                Airdrop
-              </Button>
-              <Button
-                type="primary"
-                size="large"
-                onClick={transfer}
-                loading={loading}
-              >
-                Transfer
-              </Button>
-            </Space>
-          </Space>
+      </Row>
+      <Row>
+        <Col style={{ width: 200 }}>
+          <Button
+            type="primary"
+            onClick={toggleCollapsed}
+            style={{ marginBottom: 0 }}
+          >
+            {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          </Button>
+          <Menu
+            defaultSelectedKeys={["1"]}
+            mode="vertical"
+            onClick={(e) => setSelectedMenuItem(e.key)}
+            theme="dark"
+            inlineCollapsed={collapsed}
+          >
+            <Menu.Item key="1">Deposit</Menu.Item>
+            <Menu.Item key="2">Swap</Menu.Item>
+            {/* <Menu.Item key="3">Mint Token</Menu.Item> */}
+          </Menu>
+        </Col>
+        <Col span={18} style={{ textAlign: "center" }}>
+          {componentsSwitch(selectedMenuItem)}
         </Col>
       </Row>
     </Layout>
-  )
+  );
 }
 
-export default View
+export default View;
